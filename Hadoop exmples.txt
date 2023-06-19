@@ -1,0 +1,232 @@
+## Last amended: 16th March, 2023
+## My folder: /home/ashok/Documents/hadoop_streaming
+## Ref:  file:///home/ashok/hadoop/share/doc/hadoop/hadoop-mapreduce-client/hadoop-mapreduce-client-core/HadoopStreaming.html
+## Objective simple expt on hadoop streaming
+
+
+
+##**********************************************************************##
+################## AA. Using bash shell for mapper/reducer ###############
+##**********************************************************************##
+
+##########
+## Example 1
+##########
+
+
+# 1.0 Upload requisite file after deleting existing folder:
+
+	hdfs dfs -rm -r /user/ashok/data_files/streaming
+	hdfs dfs -mkdir -p  /user/ashok/data_files/streaming
+	hdfs dfs -put /home/ashok/Documents/hadoop_streaming/smarks.txt /user/ashok/data_files/streaming
+	hdfs dfs -cat /user/ashok/data_files/streaming/smarks.txt
+	
+	
+# 2. And also extract from this file fields, 1 to 3 and 6 to 7 in linux file system
+cut -d "|" -f1-3,6-7 /home/ashok/Documents/hadoop_streaming/smarks.txt 
+
+
+# 3.0 Apply cut in hadoop file system
+
+# 3.1.1 This is our mapper
+c2='cut -d "|" -f1-3,6-7'
+
+HSTREAMING='/opt/hadoop-3.3.4/share/hadoop/tools/lib/hadoop-streaming-3.3.4.jar'
+
+# 3.2
+hadoop jar $HSTREAMING \
+    -D mapreduce.job.name='Experiment' \
+    -input /user/ashok/data_files/streaming/smarks.txt \
+    -output /user/ashok/data_files/streaming/student_out \
+    -mapper "$c2" \
+    -reducer 'cat'
+
+# 3.3 Check the processed output file
+
+hdfs dfs -cat /user/ashok/data_files/streaming/student_out/part-00000
+
+
+	
+##########
+## Example 2
+#########
+
+# 4.0 Word count
+
+# 4.1
+hdfs dfs -rm -r /user/ashok/data_files/streaming/student_out
+hdfs dfs -put /home/ashok/Documents/hadoop_streaming/inv-ship.txt  /user/ashok/data_files/streaming
+
+
+# 4.2
+hadoop jar  $HSTREAMING \
+    -input    /user/ashok/data_files/streaming/inv-ship.txt \
+    -output  /user/ashok/data_files/streaming/student_out \
+    -mapper /bin/cat \
+    -reducer /usr/bin/wc
+    
+
+# 4.3
+hdfs dfs -cat /user/ashok/data_files/streaming/student_out/part-00000
+
+
+##**********************************************************************##
+################## BB. Using python for mapper/reducer ###################
+##**********************************************************************##
+
+
+##########
+## Example 3
+#########
+
+
+# 5.0
+# Start with files under the folder python_mappers.
+
+
+
+
+##**********************************************************************##
+################## CC. Using awk for mapper/reducer ###################
+##**********************************************************************##
+
+
+##########
+## Example 4
+#########
+
+
+## Use of awk as reducer
+# 6.0 mapper is:  'cat' ; reducer is 'awk' script.
+
+
+# 6.0.1 Upload requisite file after deleting existing folder:
+
+	hdfs dfs -rm -r /user/ashok/data_files/streaming
+	hdfs dfs -mkdir -p  /user/ashok/data_files/streaming
+	hdfs dfs -put /home/ashok/Documents/hadoop_streaming/smarks.txt /user/ashok/data_files/streaming
+	hdfs dfs -cat /user/ashok/data_files/streaming/smarks.txt
+
+
+# 6.1
+
+hdfs dfs -rm -r /user/ashok/data_files/streaming/student_out
+
+# 6.2  Print smarks.txt in lower case.
+
+hadoop jar $HSTREAMING \
+    -D mapreduce.job.name='Experiment' \
+    -input /user/ashok/data_files/streaming/smarks.txt \
+    -output /user/ashok/data_files/streaming/student_out \
+    -mapper /bin/cat \
+    -reducer 'awk "{ print tolower($0)  }" '
+    
+# 6.3 Results?
+
+hdfs dfs -cat /user/ashok/data_files/streaming/student_out/part-00000
+
+
+
+##########
+## Example 5
+##########
+
+
+# 7.0
+# Wrap awk script in a shell script.
+# Test as follows:
+
+#   cd  /home/ashok/Documents/hadoop_streaming
+#    chmod +x p.awk
+#	cat inv-ship.txt   | ./p.awk
+
+
+
+# 7.1
+cd ~
+hdfs dfs -rm -r /user/ashok/data_files/streaming/student_out
+hdfs dfs -put /home/ashok/Documents/hadoop_streaming/inv-ship.txt  /user/ashok/data_files/streaming
+
+
+# 7.2 Location of awk file
+P="/home/ashok/Documents/hadoop_streaming/p.awk"
+
+# 7.3
+hadoop jar  $HSTREAMING \
+    -input  /user/ashok/data_files/streaming/inv-ship.txt \
+    -output  /user/ashok/data_files/streaming/student_out  \
+    -mapper /bin/cat \
+    -reducer $P \
+    -file $P
+
+# 7.4
+hdfs dfs -cat /user/ashok/data_files/streaming/student_out/part-00000    
+
+##########
+## Example 6
+##########
+
+## Data transformation
+
+## 8.0  Test as follows:
+#   cd  /home/ashok/Documents/hadoop_streaming
+#    chmod +x transform.awk
+#    ./transform.awk marketbasket.csv   | more
+#	cat marketbasket.csv | cat | ./transform.awk
+
+# 8.1
+hdfs dfs -rm -r /user/ashok/data_files/streaming/student_out
+hdfs dfs -put  /home/ashok/Documents/hadoop_streaming/marketbasket.csv  /user/ashok/data_files/streaming
+
+# 8.2
+hadoop  jar  $HSTREAMING   \
+     -input  /user/ashok/data_files/streaming/marketbasket.csv  \
+     -output  /user/ashok/data_files/streaming/student_out  \
+     -mapper /bin/cat   \
+    -reducer /home/ashok/Documents/hadoop_streaming/transform.awk   \
+    -file   /home/ashok/Documents/hadoop_streaming/transform.awk
+
+# 8.3
+hdfs dfs -cat /user/ashok/data_files/streaming/student_out/part-00000    
+
+
+
+##########
+## Example 7
+##########
+
+## Use of sed for data cleaning
+
+
+hdfs dfs -rm -r /user/ashok/data_files/streaming/student_out
+hdfs dfs -put /home/ashok/Documents/hadoop_streaming/inv-ship.txt  /user/ashok/data_files/streaming
+
+# Example 4
+# Wrap sed script in a shell script.
+# Test as follows:
+#	cat u.tsv | cat | ./s.sed
+
+
+HADOOP_STREAMING=/usr/lib/hadoop-0.20-mapreduce/contrib/streaming/hadoop-streaming-2.0.0-mr1-cdh4.6.0.jar
+HSTREAMING="$HADOOP_HOME/bin/hadoop jar $HADOOP_STREAMING"
+
+# Location of sed file
+#   s.sed
+P="/home/ashokharnal/hadoop_streaming/hstreaming/s.sed"
+
+$HSTREAMING \
+    -input /user/ashokharnal/u.tsv \
+    -output /user/ashokharnal/useless  \
+    -mapper /bin/cat \
+    -reducer  $P \
+    -file $P 
+    
+    
+----------s.sed
+
+#!/bin/sed -f
+
+s/NYSE/MYSE/
+s/ASP/BSP/
+
+====================================================
